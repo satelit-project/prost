@@ -119,7 +119,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use log::trace;
-use prost::Message;
+
+pub use prost::Message;
+pub use prost_types::compiler::{CodeGeneratorRequest, CodeGeneratorResponse};
+pub use prost_types::compiler::code_generator_response;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
 
 pub use crate::ast::{Comments, Method, Service};
@@ -570,6 +573,28 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    pub fn compile_request(
+        &mut self,
+        request: CodeGeneratorRequest,
+    ) -> Result<CodeGeneratorResponse> {
+        let modules = self.generate(request.proto_file)?;
+        let mut response = CodeGeneratorResponse::default();
+
+        for (module, content) in modules {
+            let mut filename = module.join(".");
+            filename.push_str(".rs");
+            trace!("generating: {:?}", filename);
+
+            response.file.push(code_generator_response::File {
+                name: Some(filename),
+                content: Some(content),
+                ..Default::default()
+            });
+        }
+
+        Ok(response)
     }
 
     fn generate(&mut self, files: Vec<FileDescriptorProto>) -> Result<HashMap<Module, String>> {
